@@ -1,0 +1,77 @@
+{
+  "Translations": {
+    "Death Messages": [
+      {
+        "KillerType": "Player",
+        "VictimType": "Player",
+        "DamageType": "Bullet",
+        "Enabled": true,
+        "Display Permissions (Display For All Players If Empty)": [],
+        "Show Kills in Console": true,
+        "Show Kills in Chat": true,
+        "Show Kills in Discord": true,
+        "Show Kills in Notify": false,
+        "Show Kills in UINotify": false,
+        "Messages": [
+          "{killer} shot {victim} using their {weapon} over a distance of {distance}."
+        ]
+      }
+    ],
+    "Names": {},
+    "Bodyparts": {},
+    "Weapons": {},
+    "Attachments": {}
+  },
+  "Audience": {
+    "Restrict In-Game Recipients": true,
+    "Include Killer or Entity Owner": true,
+    "Include Victim": true,
+    "Include Rust Teams": true,
+    "Include Clans Plugin Members": true
+  },
+  "Discord Webhook": {
+    "Enabled": true,
+    "Webhook URL": "",
+    "Username": "Death Notes Enhanced",
+    "Avatar URL": "",
+    "Message Format": "{message}",
+    "Maximum Queued Messages": 100,
+    "Maximum Retries": 3
+  },
+  "Variable Formats": {
+    "attachments": " ({value})"
+  },
+  "Variable Colors": {
+    "killer": "#C4FF00",
+    "victim": "#C4FF00",
+    "weapon": "#C4FF00",
+    "attachments": "#C4FF00",
+    "distance": "#C4FF00",
+    "owner": "#C4FF00",
+    "position": "#C4FF00",
+    "mapgrid": "#C4FF00"
+  },
+  "Chat Format": "<color=#838383>[<color=#80D000>DeathNotes</color>] {message}</color>",
+  "Chat Icon (SteamID)": "76561198077847390",
+  "Debug Mode Enabled": false,
+  "Notify Message Type": 0,
+  "UINotify Message Type": 0,
+  "Can Player Use /dn Command": true,
+  "Patrol Heli Tags Display Permissions (Display For All Players If Empty)": [],
+  "Show Patrol Heli Tags in Console": false,
+  "Show Patrol Heli Tags in Chat": false,
+  "Show Patrol Heli Tags in Discord": false,
+  "Show Patrol Heli Tags in Notify": false,
+  "Show Patrol Heli Tags in UINotify": false,
+  "Patrol Helicopter Tag Message": "{killer} has tagged the {victim} with their {weapon} over a distance of {distance}.",
+  "Bradley APC Tags Display Permissions (Display For All Players If Empty)": [],
+  "Show Bradley APC Tags in Console": false,
+  "Show Bradley APC Tags in Chat": false,
+  "Show Bradley APC Tags in Discord": false,
+  "Show Bradley APC Tags in Notify": false,
+  "Show Bradley APC Tags in UINotify": false,
+  "Bradley Tag Message": "{killer} has tagged the {victim} with their {weapon} over a distance of {distance}.",
+  "Message Broadcast Radius (in meters)": -1,
+  "Use Metric Distance": true,
+  "Require Permission (deathnotes.cansee)": false
+}
