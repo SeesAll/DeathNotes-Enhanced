@@ -2,6 +2,12 @@
 
 All notable changes to Death Notes Enhanced are documented here.
 
+## 1.1.1 - 2026-10-12
+
+- Discord messages now use each webhook's configured name by default instead of overriding it with `Death Notes Enhanced`.
+- Existing configurations using the former untouched username default migrate automatically to an empty override.
+- Custom webhook username overrides remain supported through the `Username` setting, which is equivalent to DeathMessage's `Bot Name`.
+
 ## 1.1.0 - 2026-10-12
 
 - Added built-in English, French, Russian, German, and Ukrainian localization.

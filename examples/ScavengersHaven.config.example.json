@@ -32,7 +32,7 @@
   "Discord Webhook": {
     "Enabled": true,
     "Webhook URL": "",
-    "Username": "Death Notes Enhanced",
+    "Username": "",
     "Avatar URL": "",
     "Message Format": "{message}",
     "Maximum Queued Messages": 100,

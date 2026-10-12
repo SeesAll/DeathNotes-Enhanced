@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "1.1.0")]
+	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "1.1.1")]
 	[Description("Configurable death notifications with private team/clan delivery and direct Discord webhooks")]
 	class DeathNotes : RustPlugin
 	{
@@ -1918,6 +1918,11 @@ namespace Oxide.Plugins
 				_configuration.BradleyTagMessage = defaults.BradleyTagMessage;
 			_configuration.Discord.WebhookUrl = (_configuration.Discord.WebhookUrl ?? string.Empty).Trim();
 			_configuration.Discord.Username = (_configuration.Discord.Username ?? string.Empty).Trim();
+			// The original enhanced release supplied its plugin name as an override, which
+			// hid the descriptive name configured on each Discord webhook. Migrate only
+			// that untouched default; any administrator-defined override is preserved.
+			if (_configuration.Discord.Username.Equals("Death Notes Enhanced", StringComparison.OrdinalIgnoreCase))
+				_configuration.Discord.Username = string.Empty;
 			_configuration.Discord.AvatarUrl = (_configuration.Discord.AvatarUrl ?? string.Empty).Trim();
 			if (string.IsNullOrWhiteSpace(_configuration.Discord.ContentFormat))
 				_configuration.Discord.ContentFormat = "{message}";
@@ -2417,7 +2422,8 @@ namespace Oxide.Plugins
 			{
 				[JsonProperty("Enabled")] public bool Enabled = true;
 				[JsonProperty("Webhook URL")] public string WebhookUrl = string.Empty;
-				[JsonProperty("Username")] public string Username = "Death Notes Enhanced";
+				// Leave blank to use the name configured on the Discord webhook itself.
+				[JsonProperty("Username")] public string Username = string.Empty;
 				[JsonProperty("Avatar URL")] public string AvatarUrl = string.Empty;
 				[JsonProperty("Message Format")] public string ContentFormat = "{message}";
 				[JsonProperty("Maximum Queued Messages")] public int MaximumQueuedMessages = 100;

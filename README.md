@@ -69,13 +69,15 @@ Configure the generated `Discord Webhook` section:
 "Discord Webhook": {
   "Enabled": true,
   "Webhook URL": "https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN",
-  "Username": "Death Notes Enhanced",
+  "Username": "",
   "Avatar URL": "",
   "Message Format": "{message}",
   "Maximum Queued Messages": 100,
   "Maximum Retries": 3
 }
 ```
+
+`Username` is the Death Notes Enhanced equivalent of DeathMessage's `Bot Name`. Set it to a descriptive server-specific value such as `[US] 2x Death Message` to override the webhook identity exactly as the premium plugin does. Leave it blank to use the name configured on the Discord webhook itself. Discord displays that name above the death-message content.
 
 The webhook URL is never written to plugin logs. Discord output strips Rust rich-text tags, prevents user/role mentions, enforces Discord's 2,000-character content limit, and retries HTTP 429, 5xx, and connection failures.
 
