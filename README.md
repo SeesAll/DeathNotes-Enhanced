@@ -12,6 +12,7 @@ Death Notes Enhanced is a Rust/Oxide plugin that creates detailed, configurable 
 - Keeps every message, color, name, body part, weapon, attachment, distance unit, and output configurable.
 - Uses an indexed rule lookup instead of repeatedly scanning the complete rule list for every death.
 - Retains the `OnDeathNotice` compatibility hook used by other plugins.
+- Includes English, French, Russian, German, and Ukrainian messages with automatic per-player language selection.
 
 ## Installation
 
@@ -21,6 +22,20 @@ Death Notes Enhanced is a Rust/Oxide plugin that creates detailed, configurable 
 4. Edit the generated configuration as needed, then reload with `oxide.reload DeathNotes`.
 
 No plugin dependency is required. `Clans`, `Notify`, and `UINotify` are optional integrations.
+
+## Languages
+
+English (`en`), French (`fr`), Russian (`ru`), German (`de`), and Ukrainian (`uk`) are included. In-game messages and `/dn` responses automatically follow each player's Oxide language preference. Console and Discord output follow the server language. Players can use Rust/Oxide's standard `lang <code>` command to change their preference.
+
+Language files are generated under `oxide/lang/<code>/DeathNotes.json` and may be edited by the server owner. Reload the plugin after editing one. Every bundled death template has a localized equivalent; the more playful English messages intentionally use concise, natural wording in other languages. Player names remain unchanged, while weapon and entity labels continue to use the administrator-configurable values under `Translations` in the main config.
+
+For safety, a customized translation that drops or adds a required placeholder such as `{killer}`, `{victim}`, `{weapon}`, or `{distance}` falls back to the configured English template. A custom death template in the main config that no longer matches a bundled default is preserved verbatim rather than being unexpectedly rewritten.
+
+Localization does not add a plugin dependency or make network requests. During a death event, formatted output is cached per language and distance-unit combination, so a team or clan sharing those settings reuses one formatted string.
+
+## Chat icon
+
+Native Rust chat accepts a Steam ID for its icon rather than an image URL or an ImageLibrary key. The default is the ScavengersHaven Steam account (`76561199568857188`). Change `Chat Icon (SteamID)` to another account ID if desired. ImageLibrary is not required and cannot substitute an arbitrary cached image into a native chat line; doing that would require a separate custom CUI notification mode.
 
 ## Default behavior
 

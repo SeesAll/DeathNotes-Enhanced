@@ -2,6 +2,16 @@
 
 All notable changes to Death Notes Enhanced are documented here.
 
+## 1.1.0 - 2026-10-12
+
+- Added built-in English, French, Russian, German, and Ukrainian localization.
+- Death messages now use each recipient's Oxide language preference; console and Discord use the server language.
+- Localized death messages are cached once per language and distance-unit combination for each death event.
+- Added localized distance-unit labels and `/dn` command responses.
+- Added placeholder validation so a malformed customized translation safely falls back to the configured English template.
+- Kept custom death-message templates intact; templates that differ from the shipped defaults remain server-authored text in every language.
+- Changed the default chat icon to the ScavengersHaven Steam account (`76561199568857188`) and migrates the previous untouched default automatically.
+
 ## 1.0.1 - 2026-10-12
 
 - Removed the `[DeathNotes]` prefix from the default in-game chat format.

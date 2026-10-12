@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "1.0.1")]
+	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "1.1.0")]
 	[Description("Configurable death notifications with private team/clan delivery and direct Discord webhooks")]
 	class DeathNotes : RustPlugin
 	{
@@ -47,6 +47,80 @@ namespace Oxide.Plugins
 		private bool _discordRequestInFlight;
 		private bool _discordInvalidUrlWarningShown;
 		private bool _configSaveScheduled;
+		private static readonly HashSet<string> SupportedLanguages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+		{
+			"en", "fr", "ru", "de", "uk"
+		};
+		private readonly Dictionary<string, string> _templateKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+		private readonly Dictionary<string, Dictionary<string, string>> _languageMessageCache = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+
+		private static readonly string[] DefaultMessageTemplates =
+		{
+			"{killer} became unhappy enough to end {victim} with their {weapon}.",
+			"{killer} blew up the {victim} with their {weapon}.",
+			"{killer} demonstrated NPC superiority to {victim}.",
+			"{killer} just swatted a {victim} out of existence.",
+			"{killer} killed {victim} and ate their brains!",
+			"{killer} killed {victim} with {weapon} over a distance of {distance}.",
+			"{killer} killed a {victim} using their {weapon}.",
+			"{killer} ran over a {victim} with their {weapon}.",
+			"{killer} scared {victim} to death!",
+			"{killer} shot a {victim} using their {weapon} over a distance of {distance}.",
+			"{killer} shot down a {victim}.",
+			"{killer} vended pain to {victim}.",
+			"{owner}'s {killer} did its job, killing a {victim}.",
+			"{owner}'s {killer} did its job, killing intruder {victim}.",
+			"{victim} broke the rules in a safezone and was killed by a {killer}.",
+			"{victim} burned to death.",
+			"{victim} couldn't run away from the {killer}.",
+			"{victim} died of immense thirst.",
+			"{victim} died to the environment.",
+			"{victim} fell to their death. Splat!",
+			"{victim} fell victim to {owner}'s well placed {killer}.",
+			"{victim} forgot that a {killer} is not, in fact, friendly.",
+			"{victim} forgot to dodge the {killer}.",
+			"{victim} forgot to eat and hungers for life.",
+			"{victim} froze to death.",
+			"{victim} got in a sticky situation with a {killer}.",
+			"{victim} had a cheery, radioactive glow. Fatal, but cheery nonetheless.",
+			"{victim} had enough of life.",
+			"{victim} had no chance against the {killer}.",
+			"{victim} learned the hard way that a {killer} can come down as well.",
+			"{victim} met a deadly {killer} owned by {owner}.",
+			"{victim} received a lethal dose of radiation.",
+			"{victim} succumbed to environmental decay.",
+			"{victim} succumbed to poison.",
+			"{victim} tragically perished in a {killer} crash.",
+			"{victim} turned into an ice statue.",
+			"{victim} was blasted by the {killer}.",
+			"{victim} was burned by {owner}'s {killer}.",
+			"{victim} was electrocuted by {owner}'s {killer}.",
+			"{victim} was fatally electrocuted.",
+			"{victim} was grilled on a {killer}.",
+			"{victim} was impaled by a {killer}.",
+			"{victim} was magnetized and traumatized by a {killer}.",
+			"{victim} was reckless and ran into a {killer}.",
+			"{victim} was stopped in their tracks as they were run over by a {killer}.",
+			"{victim} was suddently introduced to industrial tonnage by the {killer}.",
+			"{victim} was taken out by a {killer}.",
+			"{victim} was taken out by an {killer}.",
+			"{victim} was torn to pieces in a {killer}. It turns out they consisted of 40% recyclable materials and 60% regret.",
+			"A {killer} brought down {victim}.",
+			"A {killer} excavated {victim} for trace amounts of precious materials. None were found.",
+			"A {killer} haunted down {victim}.",
+			"A {killer} just reminded {victim} that they are allergic to bee stings.",
+			"A {killer} killed {victim} with its {weapon}.",
+			"A {killer} shot down {victim}.",
+			"As {victim} just found out, breathing underwater is rather difficult.",
+			"As the {victim} just found out, breathing underwater is rather difficult.",
+			"Baby {killer}, doo-doo, doo-doo, doo-doo ate {victim}.",
+			"Death was sweet for {victim}, who was killed by a {killer}.",
+			"The {victim} was destroyed. Good riddance.",
+			"The waters are a tad safer now that {killer} killed a {victim} using their {weapon}.",
+			"The world is a safer place now that {killer} shot down the {victim} with their {weapon}. Good riddance.",
+			"We all have our ups and downs, but {victim} was just squashed by an {killer}.",
+			"{killer} has tagged the {victim} with their {weapon} over a distance of {distance}."
+		};
 
 		private readonly Dictionary<string, string> _enemyPrefabs = new()
 		{
@@ -132,11 +206,181 @@ namespace Oxide.Plugins
 
 		#endregion
 
+		#region Localization
+
+		protected override void LoadDefaultMessages()
+		{
+			foreach (string language in SupportedLanguages)
+				lang.RegisterMessages(BuildLanguageMessages(language), this, language);
+		}
+
+		private Dictionary<string, string> BuildLanguageMessages(string language)
+		{
+			var messages = GetInterfaceMessages(language);
+			for (int index = 0; index < DefaultMessageTemplates.Length; index++)
+			{
+				string key = $"Death.{index:D2}";
+				string template = DefaultMessageTemplates[index];
+				_templateKeys[template] = key;
+				messages[key] = GetDefaultTemplateTranslation(language, template);
+			}
+			return messages;
+		}
+
+		private static Dictionary<string, string> GetInterfaceMessages(string language)
+		{
+			switch (language)
+			{
+				case "fr": return new Dictionary<string, string>
+				{
+					["Command.Help"] = "<color=#FFC107>Death Notes Enhanced</color> — commandes :\n   /dn enable - Afficher les messages de mort\n   /dn disable - Masquer les messages de mort\n   /dn teamonly - Afficher uniquement les morts des participants, équipes et clans\n   /dn meters - Distances en mètres\n   /dn feet - Distances en pieds\n   /dn yards - Distances en yards",
+					["Command.HelpAdmin"] = "\n   /dn testdiscord - Envoyer un test au webhook Discord",
+					["Command.Enabled"] = "<color=#FFC107>Death Notes</color> est <color=#00FF00>ACTIVÉ</color>",
+					["Command.Disabled"] = "<color=#FFC107>Death Notes</color> est <color=#FF0000>DÉSACTIVÉ</color>",
+					["Command.TeamEnabled"] = "La vue équipe/clan de <color=#FFC107>Death Notes</color> est <color=#00FF00>ACTIVÉE</color>",
+					["Command.TeamDisabled"] = "La vue équipe/clan de <color=#FFC107>Death Notes</color> est <color=#FF0000>DÉSACTIVÉE</color>",
+					["Command.Meters"] = "Les distances de <color=#FFC107>Death Notes</color> seront affichées en <color=#00FF00>mètres</color>",
+					["Command.Feet"] = "Les distances de <color=#FFC107>Death Notes</color> seront affichées en <color=#00FF00>pieds</color>",
+					["Command.Yards"] = "Les distances de <color=#FFC107>Death Notes</color> seront affichées en <color=#00FF00>yards</color>",
+					["Command.DiscordQueued"] = "<color=#FFC107>Death Notes Enhanced</color> a mis en file un test Discord.",
+					["Command.DiscordUnavailable"] = "Discord est désactivé ou l’URL du webhook est vide ou invalide.",
+					["Unit.Meter.One"] = "mètre", ["Unit.Meter.Many"] = "mètres", ["Unit.Foot.One"] = "pied", ["Unit.Foot.Many"] = "pieds", ["Unit.Yard.One"] = "yard", ["Unit.Yard.Many"] = "yards"
+				};
+				case "ru": return new Dictionary<string, string>
+				{
+					["Command.Help"] = "<color=#FFC107>Death Notes Enhanced</color> — команды:\n   /dn enable - Показывать сообщения о смертях\n   /dn disable - Скрыть сообщения о смертях\n   /dn teamonly - Только участники, команды и кланы\n   /dn meters - Расстояние в метрах\n   /dn feet - Расстояние в футах\n   /dn yards - Расстояние в ярдах",
+					["Command.HelpAdmin"] = "\n   /dn testdiscord - Отправить тест Discord webhook",
+					["Command.Enabled"] = "<color=#FFC107>Death Notes</color>: <color=#00FF00>ВКЛЮЧЕНО</color>", ["Command.Disabled"] = "<color=#FFC107>Death Notes</color>: <color=#FF0000>ВЫКЛЮЧЕНО</color>",
+					["Command.TeamEnabled"] = "Режим команды/клана <color=#00FF00>ВКЛЮЧЕН</color>", ["Command.TeamDisabled"] = "Режим команды/клана <color=#FF0000>ВЫКЛЮЧЕН</color>",
+					["Command.Meters"] = "Расстояния будут показаны в <color=#00FF00>метрах</color>", ["Command.Feet"] = "Расстояния будут показаны в <color=#00FF00>футах</color>", ["Command.Yards"] = "Расстояния будут показаны в <color=#00FF00>ярдах</color>",
+					["Command.DiscordQueued"] = "Тест Discord webhook поставлен в очередь.", ["Command.DiscordUnavailable"] = "Discord отключён либо URL webhook пуст или недействителен.",
+					["Unit.Meter.One"] = "метр", ["Unit.Meter.Many"] = "метров", ["Unit.Foot.One"] = "фут", ["Unit.Foot.Many"] = "футов", ["Unit.Yard.One"] = "ярд", ["Unit.Yard.Many"] = "ярдов"
+				};
+				case "de": return new Dictionary<string, string>
+				{
+					["Command.Help"] = "<color=#FFC107>Death Notes Enhanced</color> — Befehle:\n   /dn enable - Todesmeldungen anzeigen\n   /dn disable - Todesmeldungen ausblenden\n   /dn teamonly - Nur Beteiligte, Teams und Clans\n   /dn meters - Entfernungen in Metern\n   /dn feet - Entfernungen in Fuß\n   /dn yards - Entfernungen in Yards",
+					["Command.HelpAdmin"] = "\n   /dn testdiscord - Discord-Webhook testen",
+					["Command.Enabled"] = "<color=#FFC107>Death Notes</color> wurde <color=#00FF00>AKTIVIERT</color>", ["Command.Disabled"] = "<color=#FFC107>Death Notes</color> wurde <color=#FF0000>DEAKTIVIERT</color>",
+					["Command.TeamEnabled"] = "Team-/Clan-Ansicht wurde <color=#00FF00>AKTIVIERT</color>", ["Command.TeamDisabled"] = "Team-/Clan-Ansicht wurde <color=#FF0000>DEAKTIVIERT</color>",
+					["Command.Meters"] = "Entfernungen werden in <color=#00FF00>Metern</color> angezeigt", ["Command.Feet"] = "Entfernungen werden in <color=#00FF00>Fuß</color> angezeigt", ["Command.Yards"] = "Entfernungen werden in <color=#00FF00>Yards</color> angezeigt",
+					["Command.DiscordQueued"] = "Discord-Webhook-Test wurde eingereiht.", ["Command.DiscordUnavailable"] = "Discord ist deaktiviert oder die Webhook-URL ist leer/ungültig.",
+					["Unit.Meter.One"] = "Meter", ["Unit.Meter.Many"] = "Meter", ["Unit.Foot.One"] = "Fuß", ["Unit.Foot.Many"] = "Fuß", ["Unit.Yard.One"] = "Yard", ["Unit.Yard.Many"] = "Yards"
+				};
+				case "uk": return new Dictionary<string, string>
+				{
+					["Command.Help"] = "<color=#FFC107>Death Notes Enhanced</color> — команди:\n   /dn enable - Показувати повідомлення про смерті\n   /dn disable - Приховати повідомлення про смерті\n   /dn teamonly - Лише учасники, команди та клани\n   /dn meters - Відстань у метрах\n   /dn feet - Відстань у футах\n   /dn yards - Відстань у ярдах",
+					["Command.HelpAdmin"] = "\n   /dn testdiscord - Надіслати тест Discord webhook",
+					["Command.Enabled"] = "<color=#FFC107>Death Notes</color>: <color=#00FF00>УВІМКНЕНО</color>", ["Command.Disabled"] = "<color=#FFC107>Death Notes</color>: <color=#FF0000>ВИМКНЕНО</color>",
+					["Command.TeamEnabled"] = "Режим команди/клану <color=#00FF00>УВІМКНЕНО</color>", ["Command.TeamDisabled"] = "Режим команди/клану <color=#FF0000>ВИМКНЕНО</color>",
+					["Command.Meters"] = "Відстані показуватимуться в <color=#00FF00>метрах</color>", ["Command.Feet"] = "Відстані показуватимуться у <color=#00FF00>футах</color>", ["Command.Yards"] = "Відстані показуватимуться в <color=#00FF00>ярдах</color>",
+					["Command.DiscordQueued"] = "Тест Discord webhook додано до черги.", ["Command.DiscordUnavailable"] = "Discord вимкнено або URL webhook порожній чи недійсний.",
+					["Unit.Meter.One"] = "метр", ["Unit.Meter.Many"] = "метрів", ["Unit.Foot.One"] = "фут", ["Unit.Foot.Many"] = "футів", ["Unit.Yard.One"] = "ярд", ["Unit.Yard.Many"] = "ярдів"
+				};
+				default: return new Dictionary<string, string>
+				{
+					["Command.Help"] = "<color=#FFC107>Death Notes Enhanced</color> options:\n   /dn enable - Displays death notes\n   /dn disable - Hides death notes\n   /dn teamonly - Shows participant/team/clan death notes only\n   /dn meters - Shows distances in meters\n   /dn feet - Shows distances in feet\n   /dn yards - Shows distances in yards",
+					["Command.HelpAdmin"] = "\n   /dn testdiscord - Sends a Discord webhook test",
+					["Command.Enabled"] = "<color=#FFC107>Death Notes</color> have been <color=#00FF00>ENABLED</color>", ["Command.Disabled"] = "<color=#FFC107>Death Notes</color> have been <color=#FF0000>DISABLED</color>",
+					["Command.TeamEnabled"] = "<color=#FFC107>Death Notes Team Only</color> view has been <color=#00FF00>ENABLED</color>", ["Command.TeamDisabled"] = "<color=#FFC107>Death Notes Team Only</color> view has been <color=#FF0000>DISABLED</color>",
+					["Command.Meters"] = "<color=#FFC107>Death Notes</color> distances will be shown in <color=#00FF00>meters</color>", ["Command.Feet"] = "<color=#FFC107>Death Notes</color> distances will be shown in <color=#00FF00>feet</color>", ["Command.Yards"] = "<color=#FFC107>Death Notes</color> distances will be shown in <color=#00FF00>yards</color>",
+					["Command.DiscordQueued"] = "<color=#FFC107>Death Notes Enhanced</color> queued a Discord webhook test.", ["Command.DiscordUnavailable"] = "Discord is disabled or its webhook URL is empty/invalid.",
+					["Unit.Meter.One"] = "meter", ["Unit.Meter.Many"] = "meters", ["Unit.Foot.One"] = "foot", ["Unit.Foot.Many"] = "feet", ["Unit.Yard.One"] = "yard", ["Unit.Yard.Many"] = "yards"
+				};
+			}
+		}
+
+		private static string GetDefaultTemplateTranslation(string language, string template)
+		{
+			if (language == "en") return template;
+			Dictionary<string, string> overrides = GetEnvironmentalTranslations(language);
+			if (overrides.TryGetValue(template, out string translated)) return translated;
+
+			bool hasOwner = template.Contains("{owner}");
+			bool hasWeapon = template.Contains("{weapon}");
+			bool hasDistance = template.Contains("{distance}");
+			bool hasKiller = template.Contains("{killer}");
+			switch (language)
+			{
+				case "fr": return hasDistance ? "{killer} a tué {victim} avec {weapon} à une distance de {distance}." : hasWeapon ? "{killer} a tué {victim} avec {weapon}." : hasOwner ? "Le {killer} de {owner} a tué {victim}." : hasKiller ? "{killer} a tué {victim}." : "{victim} est mort.";
+				case "ru": return hasDistance ? "{killer} убивает {victim} с помощью {weapon} с расстояния {distance}." : hasWeapon ? "{killer} убивает {victim} с помощью {weapon}." : hasOwner ? "{killer} игрока {owner} убивает {victim}." : hasKiller ? "{killer} убивает {victim}." : "{victim} погибает.";
+				case "de": return hasDistance ? "{killer} tötete {victim} mit {weapon} aus {distance} Entfernung." : hasWeapon ? "{killer} tötete {victim} mit {weapon}." : hasOwner ? "{owner}s {killer} tötete {victim}." : hasKiller ? "{killer} tötete {victim}." : "{victim} ist gestorben.";
+				case "uk": return hasDistance ? "{killer} вбиває {victim} за допомогою {weapon} з відстані {distance}." : hasWeapon ? "{killer} вбиває {victim} за допомогою {weapon}." : hasOwner ? "{killer} гравця {owner} вбиває {victim}." : hasKiller ? "{killer} вбиває {victim}." : "{victim} гине.";
+				default: return template;
+			}
+		}
+
+		private static Dictionary<string, string> GetEnvironmentalTranslations(string language)
+		{
+			var result = new Dictionary<string, string>(StringComparer.Ordinal);
+			Action<string, string, string, string, string> add = (source, fr, ru, de, uk) => result[source] = language == "fr" ? fr : language == "ru" ? ru : language == "de" ? de : uk;
+			add("{victim} burned to death.", "{victim} est mort brûlé.", "{victim} сгорает насмерть.", "{victim} ist verbrannt.", "{victim} згорів насмерть.");
+			add("{victim} died of immense thirst.", "{victim} est mort de soif.", "{victim} умирает от жажды.", "{victim} ist verdurstet.", "{victim} помирає від спраги.");
+			add("{victim} died to the environment.", "{victim} est mort à cause de l’environnement.", "{victim} погибает из-за окружающей среды.", "{victim} ist durch die Umwelt gestorben.", "{victim} гине через довкілля.");
+			add("{victim} fell to their death. Splat!", "{victim} est mort d’une chute.", "{victim} разбивается насмерть.", "{victim} ist in den Tod gestürzt.", "{victim} розбивається на смерть.");
+			add("{victim} forgot to eat and hungers for life.", "{victim} est mort de faim.", "{victim} умирает от голода.", "{victim} ist verhungert.", "{victim} помирає від голоду.");
+			add("{victim} froze to death.", "{victim} est mort de froid.", "{victim} замерзает насмерть.", "{victim} ist erfroren.", "{victim} замерзає на смерть.");
+			add("{victim} had enough of life.", "{victim} s’est suicidé.", "{victim} совершает самоубийство.", "{victim} hat sich selbst getötet.", "{victim} вчиняє самогубство.");
+			add("{victim} received a lethal dose of radiation.", "{victim} a reçu une dose mortelle de radiation.", "{victim} получает смертельную дозу радиации.", "{victim} erhielt eine tödliche Strahlendosis.", "{victim} отримує смертельну дозу радіації.");
+			add("{victim} succumbed to environmental decay.", "{victim} est mort de la dégradation environnementale.", "{victim} погибает от разрушительного воздействия среды.", "{victim} erlag dem Umweltzerfall.", "{victim} гине від руйнівного впливу довкілля.");
+			add("{victim} succumbed to poison.", "{victim} a succombé au poison.", "{victim} погибает от яда.", "{victim} erlag dem Gift.", "{victim} гине від отрути.");
+			add("{victim} was fatally electrocuted.", "{victim} a été mortellement électrocuté.", "{victim} погибает от удара током.", "{victim} erlitt einen tödlichen Stromschlag.", "{victim} гине від удару струмом.");
+			add("As {victim} just found out, breathing underwater is rather difficult.", "{victim} s’est noyé.", "{victim} тонет.", "{victim} ist ertrunken.", "{victim} тоне.");
+			add("As the {victim} just found out, breathing underwater is rather difficult.", "{victim} s’est noyé.", "{victim} тонет.", "{victim} ist ertrunken.", "{victim} тоне.");
+			return result;
+		}
+
+		private string ResolveLanguage(string playerId = null)
+		{
+			string language = string.IsNullOrEmpty(playerId) ? lang.GetServerLanguage() : lang.GetLanguage(playerId);
+			return SupportedLanguages.Contains(language) ? language.ToLowerInvariant() : "en";
+		}
+
+		private Dictionary<string, string> GetLanguageMessages(string language)
+		{
+			language = SupportedLanguages.Contains(language) ? language.ToLowerInvariant() : "en";
+			if (!_languageMessageCache.TryGetValue(language, out Dictionary<string, string> messages))
+			{
+				messages = lang.GetMessages(language, this) ?? lang.GetMessages("en", this);
+				_languageMessageCache[language] = messages;
+			}
+			return messages;
+		}
+
+		private string LocalizeTemplate(string template, string language)
+		{
+			if (string.IsNullOrEmpty(template) || !_templateKeys.TryGetValue(template, out string key)) return template;
+			Dictionary<string, string> messages = GetLanguageMessages(language);
+			if (messages == null || !messages.TryGetValue(key, out string localized) || !HaveMatchingPlaceholders(template, localized))
+				return template;
+			return localized;
+		}
+
+		private static bool HaveMatchingPlaceholders(string source, string localized)
+		{
+			if (string.IsNullOrEmpty(localized)) return false;
+			var sourcePlaceholders = new HashSet<string>(Regex.Matches(source, @"\{[a-z]+\}").Cast<Match>().Select(match => match.Value), StringComparer.Ordinal);
+			var localizedPlaceholders = new HashSet<string>(Regex.Matches(localized, @"\{[a-z]+\}").Cast<Match>().Select(match => match.Value), StringComparer.Ordinal);
+			return sourcePlaceholders.SetEquals(localizedPlaceholders);
+		}
+
+		private string LangMessage(string key, BasePlayer player)
+		{
+			return lang.GetMessage(key, this, player?.UserIDString);
+		}
+
+		#endregion
+
 		#region Hooks
 
 		private void Init()
 		{
 			_instance = this;
+			_languageMessageCache.Clear();
+			if (_templateKeys.Count == 0)
+			{
+				for (int index = 0; index < DefaultMessageTemplates.Length; index++)
+					_templateKeys[DefaultMessageTemplates[index]] = $"Death.{index:D2}";
+			}
 
 			permission.RegisterPermission(CanSeePermission, this);
             permission.RegisterPermission(CantSeePermission, this);
@@ -339,13 +583,10 @@ namespace Oxide.Plugins
 			if (data.KillerEntity != null)
 				data.KillerEntityType = CombatEntityType.Player;
 
-			string metersMessage = PopulateMessageVariables(isPatrolHeli ? _configuration.PatrolHeliTagMessage : _configuration.BradleyTagMessage, "meters", data);
-			string feetMessage = PopulateMessageVariables(isPatrolHeli ? _configuration.PatrolHeliTagMessage : _configuration.BradleyTagMessage, "feet", data);
-			string yardsMessage = PopulateMessageVariables(isPatrolHeli ? _configuration.PatrolHeliTagMessage : _configuration.BradleyTagMessage, "yards", data);
-			string message = metersMessage;
-
-            if (!_configuration.UseMetricDistance)
-                message = yardsMessage;
+			string tagTemplate = isPatrolHeli ? _configuration.PatrolHeliTagMessage : _configuration.BradleyTagMessage;
+			string serverLanguage = ResolveLanguage();
+			string serverUnits = _configuration.UseMetricDistance ? "meters" : "yards";
+			string message = PopulateMessageVariables(LocalizeTemplate(tagTemplate, serverLanguage), serverUnits, data, serverLanguage);
 
 			object hookResult = false;
 			try
@@ -375,6 +616,7 @@ namespace Oxide.Plugins
 
 			HashSet<ulong> audience = BuildRecipientIds(data);
 			HashSet<ulong> recipients = _configuration.Audience.RestrictInGameRecipients ? audience : null;
+			var formattedMessages = new Dictionary<string, string>(StringComparer.Ordinal);
 
 			//Prints to chat, the Notify plugin, and/or the UINotify plugin
 			foreach (var player in BasePlayer.activePlayerList)
@@ -395,7 +637,14 @@ namespace Oxide.Plugins
 				    player.Distance(data.VictimEntity) > _configuration.MessageRadius)
 					continue;
 
-				string playerMessage = GetMessageForPlayer(player, metersMessage, feetMessage, yardsMessage);
+				string playerLanguage = ResolveLanguage(player.UserIDString);
+				string playerUnits = GetUnitsForPlayer(player);
+				string cacheKey = playerLanguage + "|" + playerUnits;
+				if (!formattedMessages.TryGetValue(cacheKey, out string playerMessage))
+				{
+					playerMessage = PopulateMessageVariables(LocalizeTemplate(tagTemplate, playerLanguage), playerUnits, data, playerLanguage);
+					formattedMessages[cacheKey] = playerMessage;
+				}
 
 				if (isPatrolHeli ? _configuration.ShowPatrolHeliTagsInChat : _configuration.ShowBradleyTagsInChat)
 				{
@@ -527,17 +776,12 @@ namespace Oxide.Plugins
             // Find the best matching death message for this death
             string deathMessageString = GetDeathMessageString(deathMessage);
 
-			// Populate the variables in the message
-			string metersMessage = PopulateMessageVariables(deathMessageString,"meters",data);
+			string serverLanguage = ResolveLanguage();
+			string serverUnits = _configuration.UseMetricDistance ? "meters" : "yards";
+			string message = PopulateMessageVariables(LocalizeTemplate(deathMessageString, serverLanguage), serverUnits, data, serverLanguage);
 
-			if (metersMessage == null)
+			if (message == null)
 				return;
-
-            string message = metersMessage;
-			string feetMessage = PopulateMessageVariables(deathMessageString,"feet",data);
-			string yardsMessage = PopulateMessageVariables(deathMessageString,"yards",data);
-            if (!_configuration.UseMetricDistance)
-                message = yardsMessage;
 
 			object hookResult = false;
 			try
@@ -574,6 +818,7 @@ namespace Oxide.Plugins
 
 				HashSet<ulong> audience = BuildRecipientIds(data);
 				HashSet<ulong> recipients = _configuration.Audience.RestrictInGameRecipients ? audience : null;
+				var formattedMessages = new Dictionary<string, string>(StringComparer.Ordinal);
 
 				//Prints to chat, the Notify plugin, and/or the UINotify plugin
 				foreach (var player in BasePlayer.activePlayerList)
@@ -594,7 +839,14 @@ namespace Oxide.Plugins
 						player.Distance(data.VictimEntity) > _configuration.MessageRadius)
 						continue;
 
-					string playerMessage = GetMessageForPlayer(player, metersMessage, feetMessage, yardsMessage);
+					string playerLanguage = ResolveLanguage(player.UserIDString);
+					string playerUnits = GetUnitsForPlayer(player);
+					string cacheKey = playerLanguage + "|" + playerUnits;
+					if (!formattedMessages.TryGetValue(cacheKey, out string playerMessage))
+					{
+						playerMessage = PopulateMessageVariables(LocalizeTemplate(deathMessageString, playerLanguage), playerUnits, data, playerLanguage);
+						formattedMessages[cacheKey] = playerMessage;
+					}
 
 					if (deathMessage.ShowKillsInChatValue)
 					{
@@ -797,7 +1049,7 @@ namespace Oxide.Plugins
         }
 
         //units must be meters, yards, or feet
-		private string PopulateMessageVariables(string message, string units, DeathData data)
+		private string PopulateMessageVariables(string message, string units, DeathData data, string language = "en")
 		{
 			if (string.IsNullOrEmpty(message))
 				return null;
@@ -817,7 +1069,7 @@ namespace Oxide.Plugins
 				if (data.KillerEntity != null)
 				{
 					var distance = data.KillerEntity.Distance(data.VictimEntity);
-					replacements.Add("distance", GetDistance(distance, units));
+					replacements.Add("distance", GetDistance(distance, units, language));
 				}
 
 				if ((data.KillerEntityType == CombatEntityType.Player) || (data.KillerEntityType == CombatEntityType.CustomNPC) || (data.KillerEntityType == CombatEntityType.Drone))
@@ -1482,15 +1734,15 @@ namespace Oxide.Plugins
 			return recipients;
 		}
 
-		private string GetMessageForPlayer(BasePlayer player, string metersMessage, string feetMessage, string yardsMessage)
+		private string GetUnitsForPlayer(BasePlayer player)
 		{
 			if (permission.UserHasPermission(player.UserIDString, UseImperialFeet))
-				return feetMessage;
+				return "feet";
 
 			if (permission.UserHasPermission(player.UserIDString, UseImperialYards))
-				return yardsMessage;
+				return "yards";
 
-			return metersMessage;
+			return "meters";
 		}
 
 		private static void AddRustTeamMembers(ulong playerId, HashSet<ulong> recipients)
@@ -1749,7 +2001,7 @@ namespace Oxide.Plugins
 
             if (args.Length <= 0)
             {
-                Player.Message(player, $"<color=#80D000>Death Notes Enhanced</color> options:</color>\n   /dn enable - Displays death notes\n   /dn disable - Hides death notes\n   /dn teamonly - Shows participant/team/clan death notes only\n   /dn meters - Shows distances in meters\n   /dn feet - Shows distances in feet\n   /dn yards - Shows distances in yards" + (player.IsAdmin || permission.UserHasPermission(player.UserIDString, AdminPermission) ? "\n   /dn testdiscord - Sends a Discord webhook test" : string.Empty));
+                Player.Message(player, LangMessage("Command.Help", player) + (player.IsAdmin || permission.UserHasPermission(player.UserIDString, AdminPermission) ? LangMessage("Command.HelpAdmin", player) : string.Empty));
             }
             else
             {
@@ -1757,12 +2009,12 @@ namespace Oxide.Plugins
                 if (arg == "enable")
                 {
                     permission.RevokeUserPermission(player.UserIDString, CantSeePermission);
-                    Player.Message(player, $"<color=#80D000>Death Notes</color> have been <color=#00FF00>ENABLED</color>");
+                    Player.Message(player, LangMessage("Command.Enabled", player));
                 }
                 else if (arg == "disable")
                 {
                     permission.GrantUserPermission(player.UserIDString, CantSeePermission, this);
-                    Player.Message(player, $"<color=#80D000>Death Notes</color> have been <color=#FF0000>DISABLED</color>");
+                    Player.Message(player, LangMessage("Command.Disabled", player));
                 }
                 else if (arg == "teamonly")
                 {
@@ -1770,37 +2022,34 @@ namespace Oxide.Plugins
                     if (isTeamOnly)
                     {
                         permission.RevokeUserPermission(player.UserIDString, TeamOnlyPermission);
-                        Player.Message(player, $"<color=#80D000>Death Notes Team Only</color> view has been <color=#FF0000>DISABLED</color>");
+                        Player.Message(player, LangMessage("Command.TeamDisabled", player));
                     }
                     else {
                         permission.GrantUserPermission(player.UserIDString, TeamOnlyPermission, this);
-                        Player.Message(player, $"<color=#80D000>Death Notes Team Only</color> view has been <color=#00FF00>ENABLED</color>");
+                        Player.Message(player, LangMessage("Command.TeamEnabled", player));
                     }
                 }
                 else if (arg == "meters")
                 {
                     permission.RevokeUserPermission(player.UserIDString, UseImperialFeet);
                     permission.RevokeUserPermission(player.UserIDString, UseImperialYards);
-                    Player.Message(player, $"<color=#80D000>Death Notes</color> distances will be shown in <color=#00FF00>meters</color>");
+                    Player.Message(player, LangMessage("Command.Meters", player));
                 }
                 else if (arg == "feet")
                 {
                     permission.GrantUserPermission(player.UserIDString, UseImperialFeet, this);
                     permission.RevokeUserPermission(player.UserIDString, UseImperialYards);
-                    Player.Message(player, $"<color=#80D000>Death Notes</color> distances will be shown in <color=#00FF00>feet</color>");
+                    Player.Message(player, LangMessage("Command.Feet", player));
                 }
                 else if (arg == "yards")
                 {
                     permission.GrantUserPermission(player.UserIDString, UseImperialYards, this);
                     permission.RevokeUserPermission(player.UserIDString, UseImperialFeet);
-                    Player.Message(player, $"<color=#80D000>Death Notes</color> distances will be shown in <color=#00FF00>yards</color>");
+                    Player.Message(player, LangMessage("Command.Yards", player));
                 }
                 else if (arg == "testdiscord" && (player.IsAdmin || permission.UserHasPermission(player.UserIDString, AdminPermission)))
                 {
-					if (TrySendDiscordTest())
-						Player.Message(player, "<color=#80D000>Death Notes Enhanced</color> queued a Discord webhook test.");
-					else
-						Player.Message(player, "<color=#80D000>Death Notes Enhanced</color> Discord is disabled or its webhook URL is empty/invalid.");
+					Player.Message(player, LangMessage(TrySendDiscordTest() ? "Command.DiscordQueued" : "Command.DiscordUnavailable", player));
                 }
             }
         }
@@ -1947,23 +2196,25 @@ namespace Oxide.Plugins
         }
 
         //units can be meters, yards or feet
-		private static string GetDistance(float meters, string units)
+		private string GetDistance(float meters, string units, string language)
 		{
             double value = Math.Round(meters,1);
-            string unit = value == 1 ? "meter" : "meters";
+			string unitKey = value == 1 ? "Unit.Meter.One" : "Unit.Meter.Many";
             if (units != null)
             {
 				if (units.Trim().Equals("feet", StringComparison.OrdinalIgnoreCase))
                 {
                     value = Math.Round(meters*3.28084,0);
-                    unit = value == 1 ? "foot" : "feet";
+					unitKey = value == 1 ? "Unit.Foot.One" : "Unit.Foot.Many";
                 }
 				else if (units.Trim().Equals("yards", StringComparison.OrdinalIgnoreCase))
                 {
                     value = Math.Round(meters*1.09361,1);
-                    unit = value == 1 ? "yard" : "yards";
+					unitKey = value == 1 ? "Unit.Yard.One" : "Unit.Yard.Many";
                 }
             }
+			Dictionary<string, string> messages = GetLanguageMessages(language);
+			string unit = messages != null && messages.TryGetValue(unitKey, out string localizedUnit) ? localizedUnit : unitKey;
             return $"{value} {unit}";
 		}
 
@@ -2062,6 +2313,7 @@ namespace Oxide.Plugins
 		{
 			private const string StandardCombatMessage = "{killer} killed {victim} with {weapon} over a distance of {distance}.";
 			private const string LegacyChatFormat = "<color=#838383>[<color=#80D000>DeathNotes</color>] {message}</color>";
+			private const string LegacyChatIcon = "76561198077847390";
 
 			private static readonly HashSet<string> LegacyCombatMessages = new HashSet<string>(StringComparer.Ordinal)
 			{
@@ -2118,7 +2370,7 @@ namespace Oxide.Plugins
 			[JsonProperty("Chat Format")]
 			public string ChatFormat = "<color=#838383>{message}</color>";
 
-			[JsonProperty("Chat Icon (SteamID)")] public string ChatIcon = "76561198077847390";
+			[JsonProperty("Chat Icon (SteamID)")] public string ChatIcon = "76561199568857188";
 
 			[JsonProperty("Debug Mode Enabled")] public bool DebugMode = false;
 
@@ -2803,6 +3055,9 @@ namespace Oxide.Plugins
 			{
 				if (string.Equals(ChatFormat, LegacyChatFormat, StringComparison.Ordinal))
 					ChatFormat = "<color=#838383>{message}</color>";
+
+				if (string.Equals(ChatIcon, LegacyChatIcon, StringComparison.Ordinal))
+					ChatIcon = "76561199568857188";
 
 				if (VariableColors != null)
 				{
