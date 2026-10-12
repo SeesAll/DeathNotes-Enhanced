@@ -2,6 +2,14 @@
 
 All notable changes to Death Notes Enhanced are documented here.
 
+## 1.0.1 - 2026-10-12
+
+- Removed the `[DeathNotes]` prefix from the default in-game chat format.
+- Simplified default player-versus-player and player-versus-NPC messages to: `{killer} killed {victim} with {weapon} over a distance of {distance}.`
+- Changed the default highlight color for names, weapons, attachments, and distance to warm yellow (`#FFC107`) while keeping surrounding text and unrelated variables grey (`#838383`).
+- Added idempotent config merging for missing format/color entries and rule-key deduplication that preserves the first configured rule.
+- Added a conservative migration for unchanged 1.0.0 presentation defaults while preserving administrator-customized messages and colors.
+
 ## 1.0.0 - 2026-10-12
 
 - Forked the maintained Death Notes 6.5.8 codebase under its MIT license.

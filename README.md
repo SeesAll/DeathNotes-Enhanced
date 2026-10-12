@@ -141,10 +141,12 @@ Available for owned traps and defenses:
 The default chat format is:
 
 ```json
-"Chat Format": "<color=#838383>[<color=#80D000>DeathNotes</color>] {message}</color>"
+"Chat Format": "<color=#838383>{message}</color>"
 ```
 
-Individual variable colors are configured under `Variable Colors`. This lets a server apply its own color scheme without editing the source. Discord receives plain text because Rust color tags are removed before delivery.
+The default format has no plugin-name prefix. Player and target names, weapons, attachments, and distances use the warm yellow `#FFC107`; surrounding message text uses grey `#838383`. Individual variable colors are configurable under `Variable Colors`, so a server can apply its own color scheme without editing the source. Discord receives plain text because Rust color tags are removed before delivery.
+
+On update, missing settings and rules are merged into the existing config. Rules are identified by killer type, victim type, and damage type; duplicate rule keys are removed while the first configured rule is preserved. Legacy 1.0.0 presentation defaults are upgraded without replacing messages or colors that an administrator customized.
 
 See [`examples/ScavengersHaven.config.example.json`](examples/ScavengersHaven.config.example.json) for a concise example. The plugin fills in missing default translations when it loads.
 

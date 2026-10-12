@@ -42,16 +42,16 @@
     "attachments": " ({value})"
   },
   "Variable Colors": {
-    "killer": "#C4FF00",
-    "victim": "#C4FF00",
-    "weapon": "#C4FF00",
-    "attachments": "#C4FF00",
-    "distance": "#C4FF00",
-    "owner": "#C4FF00",
-    "position": "#C4FF00",
-    "mapgrid": "#C4FF00"
+    "killer": "#FFC107",
+    "victim": "#FFC107",
+    "weapon": "#FFC107",
+    "attachments": "#FFC107",
+    "distance": "#FFC107",
+    "owner": "#838383",
+    "position": "#838383",
+    "mapgrid": "#838383"
   },
-  "Chat Format": "<color=#838383>[<color=#80D000>DeathNotes</color>] {message}</color>",
+  "Chat Format": "<color=#838383>{message}</color>",
   "Chat Icon (SteamID)": "76561198077847390",
   "Debug Mode Enabled": false,
   "Notify Message Type": 0,

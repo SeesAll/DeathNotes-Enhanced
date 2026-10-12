@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "1.0.0")]
+	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "1.0.1")]
 	[Description("Configurable death notifications with private team/clan delivery and direct Discord webhooks")]
 	class DeathNotes : RustPlugin
 	{
@@ -1650,6 +1650,12 @@ namespace Oxide.Plugins
 			_configuration.Discord ??= new PluginConfiguration.DiscordSettings();
 			_configuration.VariableFormats ??= defaults.VariableFormats;
 			_configuration.VariableColors ??= defaults.VariableColors;
+			foreach (KeyValuePair<string, string> entry in defaults.VariableFormats)
+				if (!_configuration.VariableFormats.ContainsKey(entry.Key))
+					_configuration.VariableFormats.Add(entry.Key, entry.Value);
+			foreach (KeyValuePair<string, string> entry in defaults.VariableColors)
+				if (!_configuration.VariableColors.ContainsKey(entry.Key))
+					_configuration.VariableColors.Add(entry.Key, entry.Value);
 			_configuration.PatrolHeliDisplayPerms ??= new HashSet<string>();
 			_configuration.BradleyDisplayPerms ??= new HashSet<string>();
 			if (string.IsNullOrWhiteSpace(_configuration.ChatFormat))
@@ -2054,6 +2060,36 @@ namespace Oxide.Plugins
 
 		private sealed class PluginConfiguration
 		{
+			private const string StandardCombatMessage = "{killer} killed {victim} with {weapon} over a distance of {distance}.";
+			private const string LegacyChatFormat = "<color=#838383>[<color=#80D000>DeathNotes</color>] {message}</color>";
+
+			private static readonly HashSet<string> LegacyCombatMessages = new HashSet<string>(StringComparer.Ordinal)
+			{
+				"{victim} died due to damage deflection while attempting to murder {killer}.",
+				"{killer} shot {victim} using their {weapon} over a distance of {distance}.",
+				"{victim} was shot by {killer} with their {weapon} over a distance of {distance}.",
+				"{killer} inflamed {victim} with their {weapon}.",
+				"{killer} bludgeoned {victim} with their {weapon}.",
+				"{killer} stabbed {victim} with their {weapon}.",
+				"{killer} blew up {victim} with their {weapon} over a distance of {distance}.",
+				"{killer} killed {victim} using their {weapon}.",
+				"{killer} slashed {victim} into pieces with their {weapon}.",
+				"{killer} fought off a spooky {victim} with their {weapon}.",
+				"{killer} shot a {victim} with their {weapon} over a distance of {distance}.",
+				"{killer} did some scaring of their own against a {victim} with their {weapon} over a distance of {distance}.",
+				"{killer} fought off a deliciously deadly {victim} with their {weapon}.",
+				"{killer} took a bite out of a deliciously deadly {victim} with their {weapon} over a distance of {distance}.",
+				"{killer} did not want to be a part of the {victim}'s experiments, and did some science of their own with their {weapon}.",
+				"{killer} did some research of their own against a {victim} with their {weapon} over a distance of {distance}.",
+				"{killer} was not interested in {victim}'s inventory, and sold them pain with their {weapon} instead.",
+				"{killer} conveyed their opinion of NPCs to {victim} with their {weapon}.",
+				"{killer} took out a {victim} with their {weapon}.",
+				"{killer} took out a {victim} with their {weapon} over a distance of {distance}.",
+				"{killer} took out an {victim} with their {weapon}.",
+				"{victim} bled out after being attacked by {killer}.",
+				"{killer} ran over {victim} with their {weapon}."
+			};
+
 			[JsonProperty("Translations")] public Translation Translations = new Translation();
 
 			[JsonProperty("Audience")] public AudienceSettings Audience = new AudienceSettings();
@@ -2069,18 +2105,18 @@ namespace Oxide.Plugins
 			[JsonProperty("Variable Colors")] public Dictionary<string, string> VariableColors =
 				new Dictionary<string, string>
 				{
-					["killer"] = "#C4FF00",
-					["victim"] = "#C4FF00",
-					["weapon"] = "#C4FF00",
-					["attachments"] = "#C4FF00",
-					["distance"] = "#C4FF00",
-					["owner"] = "#C4FF00",
-                    ["position"] = "#C4FF00",
-                    ["mapgrid"] = "#C4FF00"
+					["killer"] = "#FFC107",
+					["victim"] = "#FFC107",
+					["weapon"] = "#FFC107",
+					["attachments"] = "#FFC107",
+					["distance"] = "#FFC107",
+					["owner"] = "#838383",
+                    ["position"] = "#838383",
+                    ["mapgrid"] = "#838383"
 				};
 
 			[JsonProperty("Chat Format")]
-			public string ChatFormat = "<color=#838383>[<color=#80D000>DeathNotes</color>] {message}</color>";
+			public string ChatFormat = "<color=#838383>{message}</color>";
 
 			[JsonProperty("Chat Icon (SteamID)")] public string ChatIcon = "76561198077847390";
 
@@ -2145,6 +2181,8 @@ namespace Oxide.Plugins
 				Translations.Attachments ??= new Dictionary<string, string>();
 				Translations.Messages ??= new List<DeathMessage>();
 				Translations.Messages.RemoveAll(message => message == null);
+				MigrateLegacyDefaults();
+				RemoveDuplicateDeathMessages();
 
 				Translations.Names.TryAdd("Chicken", "Chicken");
 				Translations.Names.TryAdd("Boar", "Boar");
@@ -2454,31 +2492,31 @@ namespace Oxide.Plugins
 				Translations.Attachments.TryAdd("Targeting Attachment", "Targeting Attachment");
 				Translations.Attachments.TryAdd("Soda Can Silencer", "Soda Can Silencer");
 
-				var defaultMessage = new DeathMessage("Player", "Player", "Generic", "{victim} died due to damage deflection while attempting to murder {killer}.");
+				var defaultMessage = new DeathMessage("Player", "Player", "Generic", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Bullet", "{killer} shot {victim} using their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Arrow", "{victim} was shot by {killer} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Arrow", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Heat", "{killer} inflamed {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Heat", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Blunt", "{killer} bludgeoned {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Blunt", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Stab", "{killer} stabbed {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Stab", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Explosion", "{killer} blew up {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Explosion", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "*", "{killer} killed {victim} using their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "Player", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Slash", "{killer} slashed {victim} into pieces with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Slash", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("Player", "Animal", "*", "{killer} killed a {victim} using their {weapon}.");
@@ -2493,43 +2531,43 @@ namespace Oxide.Plugins
 				defaultMessage = new DeathMessage("Player", "Animal", "Arrow", "{killer} shot a {victim} using their {weapon} over a distance of {distance}.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "ZombieNPC", "*", "{killer} fought off a spooky {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "ZombieNPC", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("ZombieNPC", "Player", "*", "{killer} killed {victim} and ate their brains!");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "ZombieNPC", "Bullet", "{killer} shot a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "ZombieNPC", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "ScarecrowNPC", "*", "{killer} fought off a spooky {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "ScarecrowNPC", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("ScarecrowNPC", "Player", "*", "{killer} scared {victim} to death!");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "ScarecrowNPC", "Bullet", "{killer} did some scaring of their own against a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "ScarecrowNPC", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "GingerbreadNPC", "*", "{killer} fought off a deliciously deadly {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "GingerbreadNPC", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("GingerbreadNPC", "Player", "*", "Death was sweet for {victim}, who was killed by a {killer}.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "GingerbreadNPC", "Bullet", "{killer} took a bite out of a deliciously deadly {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "GingerbreadNPC", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Scientist", "*", "{killer} did not want to be a part of the {victim}'s experiments, and did some science of their own with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "Scientist", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Scientist", "Bullet", "{killer} did some research of their own against a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "Scientist", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Scientist", "Arrow", "{killer} did some research of their own against a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "Scientist", "Arrow", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "NPCShopKeeper", "*", "{killer} was not interested in {victim}'s inventory, and sold them pain with their {weapon} instead.");
+				defaultMessage = new DeathMessage("Player", "NPCShopKeeper", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("CustomNPC", "Player", "*", "{killer} demonstrated NPC superiority to {victim}.");
@@ -2538,19 +2576,19 @@ namespace Oxide.Plugins
                 defaultMessage = new DeathMessage("TravellingVendor", "*", "*", "{killer} vended pain to {victim}.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "CustomNPC", "*", "{killer} conveyed their opinion of NPCs to {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "CustomNPC", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("NPCShopKeeper", "Player", "*", "{killer} became unhappy enough to end {victim} with their {weapon}.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "HeavyScientist", "*", "{killer} did not want to be a part of the {victim}'s experiments, and did some science of their own with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "HeavyScientist", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "HeavyScientist", "Bullet", "{killer} did some research of their own against a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "HeavyScientist", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "HeavyScientist", "Arrow", "{killer} did some research of their own against a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "HeavyScientist", "Arrow", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("Player", "Bradley", "*", "{killer} blew up the {victim} with their {weapon}.");
@@ -2622,19 +2660,19 @@ namespace Oxide.Plugins
 				defaultMessage = new DeathMessage("TunnelDweller", "Player", "*", "{victim} was taken out by a {killer}.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "TunnelDweller", "*", "{killer} took out a {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "TunnelDweller", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "TunnelDweller", "Bullet", "{killer} took out a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "TunnelDweller", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("UnderwaterDweller", "Player", "*", "{victim} was taken out by an {killer}.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "UnderwaterDweller", "*", "{killer} took out an {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "UnderwaterDweller", "*", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "UnderwaterDweller", "Bullet", "{killer} took out a {victim} with their {weapon} over a distance of {distance}.");
+				defaultMessage = new DeathMessage("Player", "UnderwaterDweller", "Bullet", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("ExcavatorArm", "Player", "*", "A {killer} excavated {victim} for trace amounts of precious materials. None were found.");
@@ -2724,13 +2762,13 @@ namespace Oxide.Plugins
 				defaultMessage = new DeathMessage("*", "Animal", "Drowned", "As the {victim} just found out, breathing underwater is rather difficult.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Bleeding", "{victim} bled out after being attacked by {killer}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Bleeding", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("Player", "Animal", "Collision", "{killer} ran over a {victim} with their {weapon}.");
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
-				defaultMessage = new DeathMessage("Player", "Player", "Collision", "{killer} ran over {victim} with their {weapon}.");
+				defaultMessage = new DeathMessage("Player", "Player", "Collision", StandardCombatMessage);
 				if (!Translations.Messages.Contains(defaultMessage)) Translations.Messages.Add(defaultMessage);
 
 				defaultMessage = new DeathMessage("Train", "Player", "Collision", "{victim} was stopped in their tracks as they were run over by a {killer}.");
@@ -2759,6 +2797,61 @@ namespace Oxide.Plugins
 						msg.ShowKillsInDiscord = true;
 				}
 
+			}
+
+			private void MigrateLegacyDefaults()
+			{
+				if (string.Equals(ChatFormat, LegacyChatFormat, StringComparison.Ordinal))
+					ChatFormat = "<color=#838383>{message}</color>";
+
+				if (VariableColors != null)
+				{
+					MigrateColor("killer", "#FFC107");
+					MigrateColor("victim", "#FFC107");
+					MigrateColor("weapon", "#FFC107");
+					MigrateColor("attachments", "#FFC107");
+					MigrateColor("distance", "#FFC107");
+					MigrateColor("owner", "#838383");
+					MigrateColor("position", "#838383");
+					MigrateColor("mapgrid", "#838383");
+				}
+
+				foreach (DeathMessage message in Translations.Messages)
+				{
+					if (!string.Equals(message.KillerType, "Player", StringComparison.Ordinal) ||
+					    message.Messages == null || message.Messages.Length != 1 ||
+					    !LegacyCombatMessages.Contains(message.Messages[0]))
+						continue;
+
+					message.Messages[0] = StandardCombatMessage;
+				}
+			}
+
+			private void MigrateColor(string variable, string replacement)
+			{
+				if (VariableColors.TryGetValue(variable, out string color) &&
+				    string.Equals(color, "#C4FF00", StringComparison.OrdinalIgnoreCase))
+					VariableColors[variable] = replacement;
+			}
+
+			private void RemoveDuplicateDeathMessages()
+			{
+				var seen = new HashSet<string>(StringComparer.Ordinal);
+				Translations.Messages.RemoveAll(message =>
+				{
+					if (message == null)
+						return true;
+
+					message.KillerType = message.KillerType?.Trim();
+					message.VictimType = message.VictimType?.Trim();
+					message.DamageType = message.DamageType?.Trim();
+					if (string.IsNullOrWhiteSpace(message.KillerType) ||
+					    string.IsNullOrWhiteSpace(message.VictimType) ||
+					    string.IsNullOrWhiteSpace(message.DamageType))
+						return false;
+
+					return !seen.Add(string.Concat(message.KillerType, "|", message.VictimType, "|", message.DamageType));
+				});
 			}
 
 			public class DeathMessage
