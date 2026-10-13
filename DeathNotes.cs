@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "1.1.1")]
+	[Info("Death Notes Enhanced", "LaserHydra/Terceran/Mr. Blue/SeesAll", "6.5.8")]
 	[Description("Configurable death notifications with private team/clan delivery and direct Discord webhooks")]
 	class DeathNotes : RustPlugin
 	{

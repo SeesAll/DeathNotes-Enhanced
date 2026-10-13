@@ -2,6 +2,8 @@
 
 Death Notes Enhanced is a Rust/Oxide plugin that creates detailed, configurable death notifications. It is based on the MIT-licensed Death Notes plugin and adds private participant/team/clan delivery, a dependency-free Discord webhook, safer defaults, and lower-overhead message matching.
 
+The plugin reports the same version number as the official Death Notes release it tracks. This keeps uMod-aware update checkers useful on servers running this customized fork. Future official releases should be reviewed and selectively merged before advancing the reported version.
+
 ## Highlights
 
 - Sends in-game death messages only to the victim, killer/entity owner, and their online Rust team and clan members by default.

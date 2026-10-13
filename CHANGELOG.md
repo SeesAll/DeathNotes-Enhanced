@@ -2,6 +2,11 @@
 
 All notable changes to Death Notes Enhanced are documented here.
 
+## 6.5.8 - 2026-10-13
+
+- Aligned the plugin's reported version with the official Death Notes 6.5.8 release so uMod-aware update checkers do not incorrectly flag this customized fork as outdated.
+- This is a version-alignment release only; the customized functionality from the 1.x releases is unchanged.
+
 ## 1.1.1 - 2026-10-12
 
 - Discord messages now use each webhook's configured name by default instead of overriding it with `Death Notes Enhanced`.
